@@ -1,17 +1,18 @@
 import { GatewayIntentBits, Client } from 'discord.js';
 import 'dotenv/config';
-import express, { response, text } from 'express';
-import { OpenAIApi } from 'openai';
+import express from 'express';
+
 import { callOpenAI } from './openai.js';
 
 import { VerifyDiscordRequest } from './utils.js';
 
+import { ContextWindow } from './contextWindow.js';
+
+const contextWindow = new ContextWindow();
+
 const token = process.env.DISCORD_TOKEN;
-const apId = process.env.API_ID;
 const port = process.env.PORT;
-const publicKey = process.env.PUBLIC_KEY;
-const guildId = process.env.GUILD_ID;
-const openai = new OpenAIApi(process.env.OPENAI_API_KEY);
+
 
 
 const client = new Client({
@@ -44,7 +45,13 @@ client.on('ready', () => {
 client.on('messageCreate', async function (message) {
     try {
         if(message.author.bot) return;
-        const gptResponse = await callOpenAI(message.content, message.author.username);
+
+        const tokens = message.content.split(' ');
+        contextWindow.addTokens(tokens);
+
+        const last1000Tokens = contextWindow.getContext();
+
+        const gptResponse = await callOpenAI(last1000Tokens + " " + message.content, message.author.username);
         console.log(gptResponse.data.choices[0].text);
         message.reply(gptResponse.data.choices[0].text);
         return;
